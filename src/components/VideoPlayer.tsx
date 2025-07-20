@@ -124,8 +124,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // Handle component unmount
   React.useEffect(() => {
+    // Store the ref in a variable to use in cleanup
+    const videoElement = videoRef.current;
+    
     return () => {
-      const videoElement = videoRef.current;
       if (videoElement && !videoElement.paused) {
         videoElement.pause();
         onPause?.();

@@ -4,14 +4,7 @@ import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
-// Viewport configuration for the application
-export const viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  viewportFit: 'cover',
-}
+// Viewport configuration moved to viewport.ts
 
 const APP_NAME = 'Dynamic Portfolio Dashboard';
 const APP_DESCRIPTION = 'A real-time portfolio tracking dashboard with market data';
