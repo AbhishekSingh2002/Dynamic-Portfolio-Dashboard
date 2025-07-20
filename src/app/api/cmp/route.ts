@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getFromCache, setToCache } from '@/lib/cache';
 
-const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes cache
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 2000; // 2 seconds
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -15,47 +17,89 @@ export async function GET(request: Request) {
   }
 
   // Check cache first
-  const cachedData = getFromCache<{ price: number }>(`price:${symbol}`);
+  const cacheKey = `price:${symbol}`;
+  const cachedData = getFromCache<{ price: number; lastUpdated: string }>(cacheKey);
+  
+  // If we have recent cached data, return it
   if (cachedData) {
     return NextResponse.json({
       price: cachedData.price,
       cached: true,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: cachedData.lastUpdated || new Date().toISOString()
     });
   }
 
-  try {
-    // Use the full URL for the request
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const yahooRes = await fetch(`${baseUrl}/api/yahoo?symbol=${encodeURIComponent(symbol)}`);
-    
-    if (!yahooRes.ok) {
-      throw new Error(`Yahoo API request failed with status ${yahooRes.status}`);
-    }
+  let lastError: Error | null = null;
+  
+  // Try multiple times before giving up
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      // Add delay between retries
+      if (attempt > 0) {
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempt));
+      }
 
-    const data = await yahooRes.json();
-    
-    if (data.price) {
-      // Cache the successful response
-      setToCache(`price:${symbol}`, { price: data.price }, CACHE_DURATION);
+      const yahooRes = await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/yahoo?symbol=${encodeURIComponent(symbol)}`,
+        { next: { revalidate: 300 } } // Revalidate every 5 minutes
+      );
       
-      return NextResponse.json({
-        price: data.price,
-        cached: false,
-        lastUpdated: new Date().toISOString()
-      });
-    }
+      if (!yahooRes.ok) {
+        // If rate limited, wait longer before retrying
+        if (yahooRes.status === 429) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          continue;
+        }
+        throw new Error(`Yahoo API request failed with status ${yahooRes.status}`);
+      }
 
-    throw new Error('Invalid response format from Yahoo Finance');
-  } catch (error) {
-    console.error('Error in CMP API:', error);
-    return NextResponse.json(
-      { 
-        error: 'Failed to fetch current market price',
-        details: error instanceof Error ? error.message : 'Unknown error',
-        cached: false
-      },
-      { status: 500 }
-    );
+      const data = await yahooRes.json();
+      
+      if (data.price !== undefined) {
+        const result = {
+          price: data.price,
+          cached: false,
+          lastUpdated: new Date().toISOString(),
+          currency: data.currency || 'USD'
+        };
+        
+        // Cache the successful response
+        setToCache(cacheKey, {
+          price: result.price,
+          lastUpdated: result.lastUpdated,
+          currency: result.currency
+        }, CACHE_DURATION);
+        
+        return NextResponse.json(result);
+      }
+      
+      throw new Error('Invalid response format from Yahoo Finance');
+      
+    } catch (error) {
+      console.error(`Attempt ${attempt + 1} failed for ${symbol}:`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // If this is the last attempt and we have cached data (even if expired), return it
+      if (attempt === MAX_RETRIES && cachedData) {
+        return NextResponse.json({
+          price: cachedData.price,
+          cached: true,
+          lastUpdated: cachedData.lastUpdated,
+          warning: 'Using cached data due to API failure',
+          error: lastError.message
+        });
+      }
+    }
   }
+
+  // If we get here, all attempts failed
+  return NextResponse.json(
+    {
+      error: 'Failed to fetch stock price after multiple attempts',
+      details: lastError?.message || 'Unknown error',
+      symbol,
+      timestamp: new Date().toISOString()
+    },
+    { status: 503 } // Service Unavailable
+  );
 }
