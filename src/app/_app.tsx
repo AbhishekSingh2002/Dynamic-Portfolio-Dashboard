@@ -2,7 +2,7 @@ import { AppProps } from 'next/app';
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { ThemeProvider } from 'next-themes';
-import { ErrorBoundary } from '../components/ErrorBoundary';
+import ErrorBoundary from '../components/ErrorBoundary';
 import '../styles/globals.css';
 
 function MyApp({ Component, pageProps }: AppProps) {
@@ -37,4 +37,5 @@ function MyApp({ Component, pageProps }: AppProps) {
   );
 }
 
+// Using a named export to satisfy ESLint's import/no-anonymous-default-export rule
 export default MyApp;

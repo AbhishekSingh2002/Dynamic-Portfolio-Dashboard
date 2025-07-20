@@ -2,6 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Stock, PortfolioStock, SectorSummary, PortfolioTableProps } from '@/types/portfolio';
+import { CMPResponse } from '@/types/api';
 import { getFromCache, setToCache } from '@/lib/cache';
 import dynamic from 'next/dynamic';
 import ErrorBoundary from './ErrorBoundary';
@@ -56,7 +57,7 @@ export default function PortfolioTable({ onUpdate }: PortfolioTableProps) {
 
             if (!priceRes.ok) throw new Error('Failed to fetch price');
             
-            const priceData = await priceRes.json();
+            const priceData: CMPResponse = await priceRes.json();
             const fundamentals = await fundamentalsRes.json();
             
             return {
