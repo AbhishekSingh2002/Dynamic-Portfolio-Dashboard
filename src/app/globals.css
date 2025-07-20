@@ -25,3 +25,10 @@ body {
     )
     rgb(var(--background-start-rgb));
 }
+
+
+@layer utilities {
+  .dark {
+    color-scheme: dark;
+  }
+}

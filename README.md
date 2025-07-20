@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Dynamic Portfolio Dashboard
+
+A real-time portfolio tracking dashboard built with Next.js, TypeScript, and Tailwind CSS. This application fetches stock market data from Alpha Vantage API to provide up-to-date portfolio information.
+
+## Features
+
+- Real-time stock price updates
+- Portfolio performance tracking
+- Sector-wise analysis
+- Gain/loss calculations
+- Responsive design
+- Auto-refresh every 15 seconds
+
+## Prerequisites
+
+- Node.js 16.14 or later
+- npm or yarn
+- Alpha Vantage API key (free tier available)
 
 ## Getting Started
 
-First, run the development server:
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/dynamic-portfolio-dashboard.git
+   cd dynamic-portfolio-dashboard
+   ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+2. **Install dependencies**
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. **Set up environment variables**
+   - Copy `.env.example` to `.env.local`
+   - Get your free API key from [Alpha Vantage](https://www.alphavantage.co/support/#api-key)
+   - Add your API key to `.env.local`
+   ```env
+   NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY=your_api_key_here
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+4. **Add your portfolio data**
+   Edit `src/app/data/portfolio.json` to add your stock holdings:
+   ```json
+   [
+     {
+       "stockName": "HDFC Bank",
+       "purchasePrice": 1490,
+       "quantity": 50,
+       "sector": "Financial",
+       "exchangeCode": "HDFCBANK"
+     },
+     // Add more stocks as needed
+   ]
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+5. **Run the development server**
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
 
-## Learn More
+6. **Open your browser**
+   Visit [http://localhost:3000](http://localhost:3000) to view your portfolio dashboard.
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `src/app/` - Next.js app router pages and API routes
+  - `api/` - API endpoints for fetching stock data
+  - `data/` - Portfolio data in JSON format
+- `src/components/` - Reusable React components
+- `src/types/` - TypeScript type definitions
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+## Technologies Used
 
-## Deploy on Vercel
+- [Next.js](https://nextjs.org/) - React framework
+- [TypeScript](https://www.typescriptlang.org/) - Type checking
+- [Tailwind CSS](https://tailwindcss.com/) - Styling
+- [Alpha Vantage API](https://www.alphavantage.co/) - Stock market data
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+### Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_campaign=create-next-app) from the creators of Next.js.
+
+1. Push your code to a GitHub/GitLab/Bitbucket repository
+2. Import the repository into Vercel
+3. Add your `NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY` to the environment variables
+4. Deploy!
+
+## Rate Limiting
+
+Note that the free tier of Alpha Vantage API has rate limits (5 API requests per minute, 500 requests per day). For production use, consider upgrading to a paid plan or implementing caching.
+
+## License
+
+This project is open source and available under the [MIT License](LICENSE).
