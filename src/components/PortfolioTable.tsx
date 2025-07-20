@@ -175,7 +175,7 @@ export default function PortfolioTable({ onUpdate }: PortfolioTableProps) {
     if (!searchTerm) return sortedStocks;
     
     const term = searchTerm.toLowerCase();
-    return sortedStocks.filter(stock => 
+    return sortedStocks.filter((stock: PortfolioStock) => 
       stock.stockName.toLowerCase().includes(term) ||
       stock.exchangeCode.toLowerCase().includes(term) ||
       stock.sector.toLowerCase().includes(term)
@@ -198,7 +198,7 @@ export default function PortfolioTable({ onUpdate }: PortfolioTableProps) {
 
     const csvContent = [
       headers,
-      ...stocks.map(stock => [
+      ...stocks.map((stock: PortfolioStock) => [
         `"${stock.stockName}"`,
         stock.exchangeCode,
         `"${stock.sector}"`,
@@ -329,7 +329,7 @@ export default function PortfolioTable({ onUpdate }: PortfolioTableProps) {
           <h2 className="text-lg font-semibold mb-4">Portfolio Performance (30 Days)</h2>
           <div className="h-64">
             <PerformanceChart 
-              data={historicalData.map(item => ({
+              data={historicalData.map((item: { date: string; value: number }) => ({
                 date: item.date,
                 open: item.value,
                 high: item.value,
@@ -343,7 +343,7 @@ export default function PortfolioTable({ onUpdate }: PortfolioTableProps) {
 
         {/* Sector Summaries */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {sectorSummaries.map((sector) => (
+          {sectorSummaries.map((sector: SectorSummary) => (
             <div
               key={sector.sector}
               className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700"
@@ -500,7 +500,7 @@ export default function PortfolioTable({ onUpdate }: PortfolioTableProps) {
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredStocks.length > 0 ? (
-                  filteredStocks.map((stock, index) => (
+                  filteredStocks.map((stock: PortfolioStock, index: number) => (
                     <tr
                       key={`${stock.exchangeCode}-${index}`}
                       className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${

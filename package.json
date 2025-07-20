@@ -31,6 +31,7 @@
     "@types/react-dom": "^18.3.1",
     "@types/xlsx": "^0.0.35",
     "autoprefixer": "^10.4.21",
+    "canvas": "^3.1.2",
     "eslint": "^8",
     "eslint-config-next": "13.5.11",
     "jest": "^30.0.4",

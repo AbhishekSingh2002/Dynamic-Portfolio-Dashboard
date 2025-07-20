@@ -1,36 +1,67 @@
 import type { Metadata } from 'next'
-import type { Viewport } from 'next/dist/lib/metadata/types/extra-types'
 import { Inter } from 'next/font/google'
-import Head from 'next/head'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
 // Viewport configuration for the application
-export const viewport: Viewport = {
+export const viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  // themeColor is not a valid property in Viewport type
-  // Moving themeColor to metadata and head tags instead
   userScalable: false,
   viewportFit: 'cover',
-  // Add theme color meta tags in the head section below
 }
 
+const APP_NAME = 'Dynamic Portfolio Dashboard';
+const APP_DESCRIPTION = 'A real-time portfolio tracking dashboard with market data';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
 export const metadata: Metadata = {
-  title: 'Dynamic Portfolio Dashboard',
-  description: 'A real-time portfolio tracking dashboard with market data',
+  applicationName: APP_NAME,
+  title: {
+    default: APP_NAME,
+    template: `%s | ${APP_NAME}`
+  },
+  description: APP_DESCRIPTION,
   manifest: '/manifest.json',
+  metadataBase: new URL(APP_URL),
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#1a202c' },
+  ],
   icons: {
     icon: '/favicon.ico',
     apple: '/apple-touch-icon.png',
   },
   openGraph: {
-    title: 'Dynamic Portfolio Dashboard',
-    description: 'A real-time portfolio tracking dashboard with market data',
     type: 'website',
+    url: APP_URL,
+    title: APP_NAME,
+    description: APP_DESCRIPTION,
+    siteName: APP_NAME,
     locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: APP_NAME,
+    description: APP_DESCRIPTION,
+  },
+  // Standard meta tags for PWA
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: APP_NAME,
+  },
+  // Add standard meta tag for mobile web apps
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  alternates: {
+    canonical: APP_URL,
   },
 }
 
@@ -42,8 +73,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-        <meta name="theme-color" content="#1a202c" media="(prefers-color-scheme: dark)" />
         <link rel="preload" href="/_next/static/css/app/layout.css" as="style" />
       </head>
       <body className={`${inter.className} min-h-screen bg-white dark:bg-gray-900 transition-colors duration-200`}>

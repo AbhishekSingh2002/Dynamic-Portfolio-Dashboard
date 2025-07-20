@@ -1,0 +1,23 @@
+{
+  "name": "Dynamic Portfolio Dashboard",
+  "short_name": "Portfolio",
+  "description": "A real-time portfolio tracking dashboard with market data",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a202c",
+  "theme_color": "#1a202c",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "32x32",
+      "type": "image/x-icon"
+    }
+  ]
+}
+      
