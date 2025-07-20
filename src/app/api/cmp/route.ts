@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server';
 import { getFromCache, setToCache } from '@/lib/cache';
 
+interface CachedPriceData {
+  price: number;
+  lastUpdated: string;
+  currency?: string;
+}
+
+interface CmpResponse {
+  price: number;
+  lastUpdated: string;
+  currency: string;
+  cached: boolean;
+}
+
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 2000; // 2 seconds
@@ -16,17 +29,19 @@ export async function GET(request: Request) {
     );
   }
 
-  // Check cache first
+  // Check cache first with proper type assertion
   const cacheKey = `price:${symbol}`;
-  const cachedData = getFromCache<{ price: number; lastUpdated: string }>(cacheKey);
+  const cachedData = getFromCache<CachedPriceData>(cacheKey);
   
   // If we have recent cached data, return it
   if (cachedData) {
-    return NextResponse.json({
+    const responseData: CmpResponse = {
       price: cachedData.price,
-      cached: true,
-      lastUpdated: cachedData.lastUpdated || new Date().toISOString()
-    });
+      lastUpdated: cachedData.lastUpdated || new Date().toISOString(),
+      currency: cachedData.currency || 'USD',
+      cached: true
+    };
+    return NextResponse.json(responseData);
   }
 
   let lastError: Error | null = null;
@@ -53,24 +68,25 @@ export async function GET(request: Request) {
         throw new Error(`Yahoo API request failed with status ${yahooRes.status}`);
       }
 
-      const data = await yahooRes.json();
+      const data = await yahooRes.json() as { price?: number; currency?: string };
       
       if (data.price !== undefined) {
-        const result = {
+        const result: CachedPriceData = {
           price: data.price,
-          cached: false,
           lastUpdated: new Date().toISOString(),
           currency: data.currency || 'USD'
         };
         
         // Cache the successful response
-        setToCache(cacheKey, {
+        const cachedResponse: CmpResponse = {
           price: result.price,
           lastUpdated: result.lastUpdated,
-          currency: result.currency
-        }, CACHE_DURATION);
+          currency: result.currency || 'USD',
+          cached: false
+        };
+        setToCache(cacheKey, result, CACHE_DURATION);
         
-        return NextResponse.json(result);
+        return NextResponse.json(cachedResponse);
       }
       
       throw new Error('Invalid response format from Yahoo Finance');
@@ -81,10 +97,15 @@ export async function GET(request: Request) {
       
       // If this is the last attempt and we have cached data (even if expired), return it
       if (attempt === MAX_RETRIES && cachedData) {
+        const cachedPriceData = cachedData as CachedPriceData;
+        const responseData: CmpResponse = {
+          price: cachedPriceData.price,
+          lastUpdated: cachedPriceData.lastUpdated,
+          currency: cachedPriceData.currency || 'USD',
+          cached: true
+        };
         return NextResponse.json({
-          price: cachedData.price,
-          cached: true,
-          lastUpdated: cachedData.lastUpdated,
+          ...responseData,
           warning: 'Using cached data due to API failure',
           error: lastError.message
         });

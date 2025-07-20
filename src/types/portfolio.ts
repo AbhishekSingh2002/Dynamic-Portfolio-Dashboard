@@ -7,6 +7,11 @@ export interface Stock {
   purchasePrice: number;
 }
 
+export interface HistoricalDataPoint {
+  date: string;
+  value: number;
+}
+
 export interface PortfolioStock extends Stock {
   currentPrice?: number;
   peRatio?: number;
@@ -23,6 +28,7 @@ export interface PortfolioStock extends Stock {
   cached?: boolean;
   error?: string;
   lastUpdated?: string;
+  historicalData?: HistoricalDataPoint[];
 }
 
 export interface SectorSummary {

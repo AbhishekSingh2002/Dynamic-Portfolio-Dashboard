@@ -6,6 +6,7 @@ import { getFromCache, setToCache } from '@/lib/cache';
 import dynamic from 'next/dynamic';
 import ErrorBoundary from './ErrorBoundary';
 import ThemeToggle from './ThemeToggle';
+import ExportButton from './ExportButton';
 
 // Dynamically import the chart with SSR disabled
 const PerformanceChart = dynamic(() => import('./PerformanceChart'), { ssr: false });
@@ -290,6 +291,9 @@ export default function PortfolioTable({ onUpdate }: PortfolioTableProps) {
                 />
               </svg>
             </div>
+            <ExportButton 
+              portfolio={stocks} 
+            />
             <button
               onClick={() => setAutoRefresh(!autoRefresh)}
               className={`px-4 py-2 rounded-lg ${
@@ -324,7 +328,16 @@ export default function PortfolioTable({ onUpdate }: PortfolioTableProps) {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
           <h2 className="text-lg font-semibold mb-4">Portfolio Performance (30 Days)</h2>
           <div className="h-64">
-            <PerformanceChart data={historicalData} />
+            <PerformanceChart 
+              data={historicalData.map(item => ({
+                date: item.date,
+                open: item.value,
+                high: item.value,
+                low: item.value,
+                close: item.value,
+                volume: 0
+              }))} 
+            />
           </div>
         </div>
 
@@ -585,8 +598,8 @@ export default function PortfolioTable({ onUpdate }: PortfolioTableProps) {
                     className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
                   >
                     <span className="sr-only">Close</span>
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
@@ -619,6 +632,18 @@ export default function PortfolioTable({ onUpdate }: PortfolioTableProps) {
                           {selectedStock.eps ? `₹${selectedStock.eps}` : 'N/A'}
                         </dd>
                       </div>
+                      {selectedStock.marketCap && (
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-500 dark:text-gray-400">Market Cap</dt>
+                          <dd className="text-sm text-gray-900 dark:text-white">{selectedStock.marketCap}</dd>
+                        </div>
+                      )}
+                      {selectedStock.dividendYield && (
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-500 dark:text-gray-400">Dividend Yield</dt>
+                          <dd className="text-sm text-gray-900 dark:text-white">{selectedStock.dividendYield}</dd>
+                        </div>
+                      )}
                     </dl>
                   </div>
 
@@ -643,18 +668,39 @@ export default function PortfolioTable({ onUpdate }: PortfolioTableProps) {
                           {Math.abs(selectedStock.gainLossPct).toFixed(2)}%)
                         </dd>
                       </div>
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-500 dark:text-gray-400">% of Portfolio</dt>
-                        <dd className="text-sm text-gray-900 dark:text-white">{selectedStock.portfolioPct.toFixed(2)}%</dd>
-                      </div>
+                      {selectedStock.yearHigh && selectedStock.yearLow && (
+                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                          <div className="flex justify-between">
+                            <dt className="text-sm text-gray-500 dark:text-gray-400">52-Week Range</dt>
+                            <dd className="text-sm text-gray-900 dark:text-white">
+                              ₹{selectedStock.yearLow} - ₹{selectedStock.yearHigh}
+                            </dd>
+                          </div>
+                        </div>
+                      )}
                     </dl>
                   </div>
                 </div>
 
-                <div className="mt-6">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Price History</h3>
-                  <div className="mt-2 h-48">
-                    <PerformanceChart data={historicalData.slice(-7)} />
+                {/* Historical Price Chart */}
+                <div className="mt-8">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                    Price History
+                  </h3>
+                  <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                    <PerformanceChart 
+                      data={selectedStock?.historicalData?.map((item: { date: string; value: number }) => ({
+                        date: item.date,
+                        open: item.value,
+                        high: item.value,
+                        low: item.value,
+                        close: item.value,
+                        volume: 0
+                      })) || []}
+                      symbol={selectedStock?.exchangeCode} 
+                      currentPrice={selectedStock?.currentPrice}
+                      className="h-80"
+                    />
                   </div>
                 </div>
 
