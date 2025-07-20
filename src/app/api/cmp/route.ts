@@ -29,19 +29,31 @@ export async function GET(request: Request) {
     );
   }
 
-  // Check cache first with proper type assertion
   const cacheKey = `price:${symbol}`;
   const cachedData = getFromCache<CachedPriceData>(cacheKey);
   
-  // If we have recent cached data, return it
-  if (cachedData) {
-    const responseData: CmpResponse = {
-      price: cachedData.price,
-      lastUpdated: cachedData.lastUpdated || new Date().toISOString(),
-      currency: cachedData.currency || 'USD',
+  // Create a safe response object from cached data
+  const createCachedResponse = (data: CachedPriceData | null | undefined): CmpResponse | null => {
+    if (!data || typeof data !== 'object') return null;
+    
+    const { price, lastUpdated, currency } = data;
+    
+    if (typeof price !== 'number' || typeof lastUpdated !== 'string') {
+      return null;
+    }
+    
+    return {
+      price,
+      lastUpdated: lastUpdated || new Date().toISOString(),
+      currency: currency || 'USD',
       cached: true
     };
-    return NextResponse.json(responseData);
+  };
+  
+  // Try to create a response from cached data
+  const cachedResponse = createCachedResponse(cachedData);
+  if (cachedResponse) {
+    return NextResponse.json(cachedResponse);
   }
 
   let lastError: Error | null = null;
@@ -95,20 +107,27 @@ export async function GET(request: Request) {
       console.error(`Attempt ${attempt + 1} failed for ${symbol}:`, error);
       lastError = error instanceof Error ? error : new Error(String(error));
       
-      // If this is the last attempt and we have cached data (even if expired), return it
-      if (attempt === MAX_RETRIES && cachedData) {
-        const cachedPriceData = cachedData as CachedPriceData;
-        const responseData: CmpResponse = {
-          price: cachedPriceData.price,
-          lastUpdated: cachedPriceData.lastUpdated,
-          currency: cachedPriceData.currency || 'USD',
-          cached: true
-        };
-        return NextResponse.json({
-          ...responseData,
-          warning: 'Using cached data due to API failure',
-          error: lastError.message
-        });
+      // If this is the last attempt, try to use cached data as fallback
+      if (attempt === MAX_RETRIES) {
+        // Try to create a response from cached data
+        const fallbackResponse = createCachedResponse(cachedData);
+        if (fallbackResponse) {
+          return NextResponse.json({
+            ...fallbackResponse,
+            warning: 'Using cached data due to API failure',
+            error: lastError?.message || 'Unknown error'
+          });
+        }
+        
+        // If no valid cached data, return the error
+        return NextResponse.json(
+          { 
+            error: 'Failed to fetch data', 
+            details: lastError?.message || 'Unknown error',
+            symbol
+          },
+          { status: 500 }
+        );
       }
     }
   }
