@@ -33,19 +33,25 @@ export async function GET(request: Request) {
   const cachedData = getFromCache<CachedPriceData>(cacheKey);
   
   // Create a safe response object from cached data
-  const createCachedResponse = (data: CachedPriceData | null | undefined): CmpResponse | null => {
-    if (!data || typeof data !== 'object') return null;
-    
-    const { price, lastUpdated, currency } = data;
-    
-    if (typeof price !== 'number' || typeof lastUpdated !== 'string') {
+  const createCachedResponse = (data: unknown): CmpResponse | null => {
+    // Type guard to check if data is a valid CachedPriceData
+    const isValidCachedData = (obj: any): obj is CachedPriceData => {
+      return (
+        obj &&
+        typeof obj === 'object' &&
+        typeof obj.price === 'number' &&
+        typeof obj.lastUpdated === 'string'
+      );
+    };
+
+    if (!isValidCachedData(data)) {
       return null;
     }
     
     return {
-      price,
-      lastUpdated: lastUpdated || new Date().toISOString(),
-      currency: currency || 'USD',
+      price: data.price,
+      lastUpdated: data.lastUpdated || new Date().toISOString(),
+      currency: data.currency || 'USD',
       cached: true
     };
   };

@@ -1,5 +1,5 @@
 // components/VideoPlayer.tsx
-import { useRef, useEffect, useState } from 'react';
+import * as React from 'react';
 
 interface VideoPlayerProps {
   src: string;
@@ -18,7 +18,7 @@ interface VideoPlayerProps {
   onError?: (error: Error) => void;
 }
 
-const VideoPlayer = ({
+const VideoPlayer: React.FC<VideoPlayerProps> = ({
   src,
   autoPlay = false,
   muted = true,
@@ -33,12 +33,12 @@ const VideoPlayer = ({
   onPause,
   onEnded,
   onError
-}: VideoPlayerProps) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [hasError, setHasError] = useState(false);
+}) => {
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [hasError, setHasError] = React.useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
@@ -123,7 +123,7 @@ const VideoPlayer = ({
   }, [autoPlay, muted, src, onPlay, onPause, onEnded, onError]);
 
   // Handle component unmount
-  useEffect(() => {
+  React.useEffect(() => {
     return () => {
       const videoElement = videoRef.current;
       if (videoElement && !videoElement.paused) {

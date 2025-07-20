@@ -1,8 +1,9 @@
 // src/components/ExportButton.tsx
 'use client';
+
+import * as React from 'react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { Menu, Transition, MenuButton, MenuItem } from '@headlessui/react';
-import { Fragment, useRef } from 'react';
 import { PortfolioStock } from '@/types/portfolio';
 import { exportToCsv, exportToExcel, exportToPrint } from '@/lib/exportUtils';
 
@@ -11,10 +12,10 @@ interface ExportButtonProps {
   className?: string;
 }
 
-export default function ExportButton({ portfolio, className = '' }: ExportButtonProps) {
-  const printRef = useRef<HTMLDivElement>(null);
+const ExportButton: React.FC<ExportButtonProps> = ({ portfolio, className = '' }) => {
+  const printRef = React.useRef<HTMLDivElement>(null);
 
-  const handleExport = (type: 'csv' | 'excel' | 'print') => {
+  const handleExport = (type: 'csv' | 'excel' | 'print'): void => {
     if (!portfolio.length) return;
     
     switch (type) {
@@ -34,13 +35,15 @@ export default function ExportButton({ portfolio, className = '' }: ExportButton
     <div className={className}>
       <Menu as="div" className="relative inline-block text-left">
         <div>
-          <MenuButton className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75">
+          <MenuButton
+            className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75"
+          >
             Export
             <ArrowDownTrayIcon className="ml-2 -mr-1 h-5 w-5" aria-hidden="true" />
           </MenuButton>
         </div>
         <Transition
-          as={Fragment}
+          as={React.Fragment}
           enter="transition ease-out duration-100"
           enterFrom="transform opacity-0 scale-95"
           enterTo="transform opacity-100 scale-100"
@@ -95,4 +98,6 @@ export default function ExportButton({ portfolio, className = '' }: ExportButton
       </div>
     </div>
   );
-}
+};
+
+export default ExportButton;
