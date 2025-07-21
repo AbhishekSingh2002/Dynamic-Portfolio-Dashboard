@@ -4,7 +4,8 @@ import { getFromCache, setToCache } from '@/lib/cache';
 interface CachedPriceData {
   price: number;
   lastUpdated: string;
-  currency?: string;
+  currency: string;
+  source: string;
 }
 
 interface CmpResponse {
@@ -12,15 +13,19 @@ interface CmpResponse {
   lastUpdated: string;
   currency: string;
   cached: boolean;
+  source: string;
+  warning?: string;
+  error?: string;
 }
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
-const MAX_RETRIES = 2;
-const RETRY_DELAY = 2000; // 2 seconds
+const MAX_RETRIES = 1; // Reduced retries to fail faster
+const RETRY_DELAY = 1000; // 1 second
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const symbol = searchParams.get('symbol');
+  const useCache = searchParams.get('cache') !== 'false';
 
   if (!symbol) {
     return NextResponse.json(
@@ -30,43 +35,26 @@ export async function GET(request: Request) {
   }
 
   const cacheKey = `price:${symbol}`;
-  const cachedData = getFromCache<CachedPriceData>(cacheKey);
+  let cachedData: CachedPriceData | null = null;
   
-  // Create a safe response object from cached data
-  const createCachedResponse = (data: unknown): CmpResponse | null => {
-    // Type guard to check if data is a valid CachedPriceData
-    const isValidCachedData = (obj: unknown): obj is CachedPriceData => {
-      return (
-        obj !== null &&
-        typeof obj === 'object' &&
-        'price' in obj &&
-        typeof (obj as any).price === 'number' &&
-        'lastUpdated' in obj &&
-        typeof (obj as any).lastUpdated === 'string'
-      );
-    };
-
-    if (!isValidCachedData(data)) {
-      return null;
+  // Only check cache if enabled
+  if (useCache) {
+    cachedData = getFromCache<CachedPriceData>(cacheKey);
+    // If we have valid cached data, return it
+    if (cachedData && cachedData.price && cachedData.lastUpdated) {
+      return NextResponse.json({
+        price: cachedData.price,
+        lastUpdated: cachedData.lastUpdated,
+        currency: cachedData.currency || 'USD',
+        source: cachedData.source || 'cache',
+        cached: true
+      });
     }
-    
-    return {
-      price: data.price,
-      lastUpdated: data.lastUpdated,
-      currency: data.currency || 'USD',
-      cached: true
-    };
-  };
-  
-  // Try to create a response from cached data
-  const cachedResponse = createCachedResponse(cachedData);
-  if (cachedResponse) {
-    return NextResponse.json(cachedResponse);
   }
 
   let lastError: Error | null = null;
   
-  // Try multiple times before giving up
+  // Try to fetch fresh data with retries
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       // Add delay between retries
@@ -74,42 +62,44 @@ export async function GET(request: Request) {
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempt));
       }
 
+      // Call our updated Yahoo API route with fallback enabled
       const yahooRes = await fetch(
-        `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/yahoo?symbol=${encodeURIComponent(symbol)}`,
-        { next: { revalidate: 300 } } // Revalidate every 5 minutes
+        `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/yahoo?symbol=${encodeURIComponent(symbol)}&fallback=true`,
+        { 
+          next: { revalidate: 300 }, // Revalidate every 5 minutes
+          cache: 'no-store' // Disable Next.js cache for this request
+        }
       );
       
       if (!yahooRes.ok) {
-        // If rate limited, wait longer before retrying
-        if (yahooRes.status === 429) {
-          await new Promise(resolve => setTimeout(resolve, 5000));
-          continue;
-        }
-        throw new Error(`Yahoo API request failed with status ${yahooRes.status}`);
+        throw new Error(`API request failed with status ${yahooRes.status}`);
       }
 
-      const data = await yahooRes.json() as { price?: number; currency?: string };
+      const data = await yahooRes.json();
       
-      if (data.price !== undefined) {
+      // If we got a valid price, cache and return it
+      if (typeof data.price === 'number') {
         const result: CachedPriceData = {
           price: data.price,
           lastUpdated: new Date().toISOString(),
-          currency: data.currency || 'USD'
+          currency: data.currency || 'USD',
+          source: data.source || 'unknown'
         };
         
         // Cache the successful response
-        const cachedResponse: CmpResponse = {
-          price: result.price,
-          lastUpdated: result.lastUpdated,
-          currency: result.currency || 'USD',
-          cached: false
-        };
         setToCache(cacheKey, result, CACHE_DURATION);
         
-        return NextResponse.json(cachedResponse);
+        return NextResponse.json({
+          price: result.price,
+          lastUpdated: result.lastUpdated,
+          currency: result.currency,
+          source: result.source,
+          cached: false,
+          warning: data.warning
+        });
       }
       
-      throw new Error('Invalid response format from Yahoo Finance');
+      throw new Error('Invalid response format from data source');
       
     } catch (error) {
       console.error(`Attempt ${attempt + 1} failed for ${symbol}:`, error);
@@ -117,22 +107,26 @@ export async function GET(request: Request) {
       
       // If this is the last attempt, try to use cached data as fallback
       if (attempt === MAX_RETRIES) {
-        // Try to create a response from cached data
-        const fallbackResponse = createCachedResponse(cachedData);
-        if (fallbackResponse) {
+        // If we have cached data, return it with a warning
+        if (cachedData) {
           return NextResponse.json({
-            ...fallbackResponse,
+            price: cachedData.price,
+            lastUpdated: cachedData.lastUpdated,
+            currency: cachedData.currency,
+            source: cachedData.source,
+            cached: true,
             warning: 'Using cached data due to API failure',
-            error: lastError?.message || 'Unknown error'
+            error: lastError?.message
           });
         }
         
-        // If no valid cached data, return the error
+        // If no cached data, return the error
         return NextResponse.json(
           { 
-            error: 'Failed to fetch data', 
+            error: 'Failed to fetch stock price',
             details: lastError?.message || 'Unknown error',
-            symbol
+            symbol,
+            suggestion: 'Please try again later or check the stock symbol.'
           },
           { status: 500 }
         );
@@ -140,14 +134,14 @@ export async function GET(request: Request) {
     }
   }
 
-  // If we get here, all attempts failed
+  // This should never be reached due to the return in the loop
   return NextResponse.json(
     {
-      error: 'Failed to fetch stock price after multiple attempts',
+      error: 'Failed to fetch stock price',
       details: lastError?.message || 'Unknown error',
       symbol,
       timestamp: new Date().toISOString()
     },
-    { status: 503 } // Service Unavailable
+    { status: 503 }
   );
 }
