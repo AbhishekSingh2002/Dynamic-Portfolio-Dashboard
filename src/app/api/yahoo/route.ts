@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 const YAHOO_FINANCE_API = 'https://query1.finance.yahoo.com/v8/finance/chart/';
+const ALPHA_VANTAGE_API = 'https://www.alphavantage.co/query';
 
 // Simple in-memory rate limiting
 const rateLimit = {
@@ -11,9 +12,40 @@ const rateLimit = {
 // Helper function to delay requests
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Helper function to fetch from Alpha Vantage as fallback
+async function fetchFromAlphaVantage(symbol: string) {
+  const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch(
+      `${ALPHA_VANTAGE_API}?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`,
+      { next: { revalidate: 300 } } // 5 minutes cache
+    );
+
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    const quote = data?.['Global Quote'];
+    
+    if (quote?.['05. price']) {
+      return {
+        price: parseFloat(quote['05. price']),
+        currency: 'USD', // Default to USD for Alpha Vantage
+        source: 'alpha_vantage',
+      };
+    }
+  } catch (error) {
+    console.error('Alpha Vantage API error:', error);
+  }
+  
+  return null;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const symbol = searchParams.get('symbol');
+  const useFallback = searchParams.get('fallback') !== 'false';
 
   if (!symbol) {
     return NextResponse.json(
@@ -22,6 +54,47 @@ export async function GET(request: Request) {
     );
   }
 
+  try {
+    // First try to get from Yahoo Finance
+    const yahooData = await fetchFromYahooFinance(symbol);
+    if (yahooData) {
+      return NextResponse.json({
+        ...yahooData,
+        cached: false,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // If Yahoo fails and fallback is enabled, try Alpha Vantage
+    if (useFallback) {
+      const alphaVantageData = await fetchFromAlphaVantage(symbol);
+      if (alphaVantageData) {
+        return NextResponse.json({
+          ...alphaVantageData,
+          cached: false,
+          timestamp: new Date().toISOString(),
+          warning: 'Using alternative data source'
+        });
+      }
+    }
+
+    throw new Error('Failed to fetch stock price from all available sources');
+  } catch (error) {
+    console.error('Error in Yahoo API route:', error);
+    
+    return NextResponse.json(
+      { 
+        error: error instanceof Error ? error.message : 'Failed to fetch stock price',
+        symbol,
+        timestamp: new Date().toISOString(),
+        suggestion: 'Try again later or check if the stock symbol is correct.'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+async function fetchFromYahooFinance(symbol: string) {
   // Enforce rate limiting
   const now = Date.now();
   const timeSinceLastRequest = now - rateLimit.lastRequestTime;
@@ -32,7 +105,7 @@ export async function GET(request: Request) {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
 
     const response = await fetch(`${YAHOO_FINANCE_API}${encodeURIComponent(symbol)}`, {
       headers: {
@@ -40,13 +113,13 @@ export async function GET(request: Request) {
         'Accept': 'application/json',
       },
       signal: controller.signal,
+      next: { revalidate: 300 } // 5 minutes cache
     });
 
     clearTimeout(timeoutId);
     rateLimit.lastRequestTime = Date.now();
 
     if (!response.ok) {
-      // If we get rate limited, wait longer before retrying
       if (response.status === 429) {
         await delay(5000); // Wait 5 seconds if rate limited
       }
@@ -60,42 +133,16 @@ export async function GET(request: Request) {
     }
     
     if (data.chart?.result?.[0]?.meta?.regularMarketPrice !== undefined) {
-      const price = data.chart.result[0].meta.regularMarketPrice;
-      return NextResponse.json({
-        price,
+      return {
+        price: data.chart.result[0].meta.regularMarketPrice,
         currency: data.chart.result[0].meta.currency || 'USD',
-        cached: false,
-        timestamp: new Date().toISOString()
-      });
+        source: 'yahoo_finance'
+      };
     }
 
     throw new Error('Invalid response format from Yahoo Finance');
   } catch (error) {
-    console.error('Error fetching from Yahoo Finance:', error);
-    
-    // Return a more specific error message
-    let errorMessage = 'Failed to fetch stock price';
-    let statusCode = 500;
-    
-    if (error instanceof Error) {
-      if (error.name === 'AbortError') {
-        errorMessage = 'Request to Yahoo Finance timed out';
-        statusCode = 504; // Gateway Timeout
-      } else if (error.message.includes('429')) {
-        errorMessage = 'Rate limited by Yahoo Finance. Please try again later.';
-        statusCode = 429;
-      } else {
-        errorMessage = error.message;
-      }
-    }
-    
-    return NextResponse.json(
-      { 
-        error: errorMessage,
-        symbol,
-        timestamp: new Date().toISOString()
-      },
-      { status: statusCode }
-    );
+    console.error('Yahoo Finance API error:', error);
+    return null;
   }
 }
