@@ -21,7 +21,7 @@ A real-time portfolio tracking dashboard built with Next.js, TypeScript, and Tai
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/dynamic-portfolio-dashboard.git
+   git clone https://github.com/AbhishekSingh2002/Dynamic-Portfolio-Dashboard.git
    cd dynamic-portfolio-dashboard
    ```
 
